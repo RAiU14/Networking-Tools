@@ -1,0 +1,3 @@
+Hostname,IP Address,Device Type,SSH Username,SSH Password
+example-switch-01,192.0.2.10,cisco_ios,CHANGE_ME,CHANGE_ME
+example-router-01,192.0.2.11,cisco_ios,CHANGE_ME,CHANGE_ME

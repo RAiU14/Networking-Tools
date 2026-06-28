@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy.orm import Session
+
+from app.core.auth import extract_token, token_role
+from app.db.session import get_db
+from app.schemas import (
+    AutoPopulateRequest,
+    AutoPopulateResponse,
+    CacheSearchResponse,
+    CacheStatsResponse,
+    CatalogDiscoveryRequest,
+    EoxEvidenceResponse,
+    CatalogDiscoveryResponse,
+    LookupRequest,
+    LookupResponse,
+    PidCatalogSearchResponse,
+)
+from app.services.eox_orchestrator import EoxOrchestrator
+
+router = APIRouter(prefix="/eox", tags=["EOX"])
+
+
+@router.post("/lookup", response_model=LookupResponse)
+def lookup_eox(request: LookupRequest, http_request: Request, db: Session = Depends(get_db)) -> LookupResponse:
+    role = token_role(extract_token(http_request))
+    read_only = role == "read"
+    return EoxOrchestrator(db).lookup_pids(
+        request.pids,
+        technology=request.technology,
+        refresh=False if read_only else request.refresh,
+        prefer_api=request.prefer_api,
+        auto_learn=False if read_only else request.auto_learn,
+    )
+
+
+@router.post("/auto-populate", response_model=AutoPopulateResponse)
+def auto_populate(request: AutoPopulateRequest, db: Session = Depends(get_db)) -> AutoPopulateResponse:
+    return EoxOrchestrator(db).auto_populate(
+        request.pids,
+        technology=request.technology,
+        refresh_existing=request.refresh_existing,
+        prefer_api=request.prefer_api,
+    )
+
+
+@router.get("/cache", response_model=CacheSearchResponse)
+def search_cache(
+    q: str | None = Query(default=None, description="Search PID, normalized PID, technology, or status"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> CacheSearchResponse:
+    return EoxOrchestrator(db).search_cache(query=q, limit=limit, offset=offset)
+
+
+@router.get("/pid-catalog", response_model=PidCatalogSearchResponse)
+def search_pid_catalog(
+    q: str | None = Query(default=None, description="Search the local PID/series catalog"),
+    limit: int = Query(default=50, ge=1, le=300),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> PidCatalogSearchResponse:
+    return EoxOrchestrator(db).search_pid_catalog(query=q, limit=limit, offset=offset)
+
+
+@router.get("/stats", response_model=CacheStatsResponse)
+def cache_stats(db: Session = Depends(get_db)) -> CacheStatsResponse:
+    return EoxOrchestrator(db).get_stats()
+
+
+@router.get("/evidence/{pid}", response_model=EoxEvidenceResponse)
+def product_evidence(
+    pid: str,
+    table_limit: int = Query(default=20, ge=1, le=100),
+    row_limit: int = Query(default=500, ge=1, le=5000),
+    db: Session = Depends(get_db),
+) -> EoxEvidenceResponse:
+    return EoxOrchestrator(db).get_product_evidence(pid, table_limit=table_limit, row_limit=row_limit)
+
+
+@router.post("/discover-catalog", response_model=CatalogDiscoveryResponse)
+def discover_catalog(request: CatalogDiscoveryRequest, db: Session = Depends(get_db)) -> CatalogDiscoveryResponse:
+    return EoxOrchestrator(db).discover_catalog(
+        categories=request.categories,
+        limit_categories=request.limit_categories,
+        include_eox_links=request.include_eox_links,
+        save_to_database=request.save_to_database,
+        crawl_models=request.crawl_models,
+        limit_series=request.limit_series,
+    )

@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-09T00:00:00+00:00",
+  "source": "bundled-sample-from-existing-EOX-result-json",
+  "metadata": {
+    "description": "Small starter seed bundled with the app. Replace this file with the full Auto_Pop output when generated.",
+    "catalog_records": 0,
+    "eox_records": 2
+  },
+  "categories": {},
+  "pid_catalog": [],
+  "eox_records": [
+    {
+      "pid": "AIR-CT5508-25-K9",
+      "normalized_pid": "AIR-CT5508-25-K9",
+      "technology": "Wireless",
+      "source": "bundled-preset",
+      "payload": {
+        "EOLProductID": "AIR-CT5508-25-K9",
+        "ProductIDDescription": "Cisco 5508 Series Wireless Controller for up to 25 APs",
+        "ProductBulletinNumber": "EOL12239",
+        "LinkToProductBulletinURL": "https://www.cisco.com/c/en/us/products/collateral/wireless/5500-series-wireless-controllers/eos-eol-notice-c51-740221.html",
+        "EOXExternalAnnouncementDate": {
+          "value": "2018-01-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSaleDate": {
+          "value": "2018-05-04",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSWMaintenanceReleases": {
+          "value": "2019-08-01",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSecurityVulSupportDate": {
+          "value": "2021-07-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfRoutineFailureAnalysisDate": {
+          "value": "2019-08-01",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfServiceContractRenewal": {
+          "value": "2022-10-27",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "LastDateOfSupport": {
+          "value": "2023-07-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSvcAttachDate": {
+          "value": "2019-08-01",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "UpdatedTimeStamp": {
+          "value": "2020-08-14",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EOXMigrationDetails": {
+          "PIDActiveFlag": "Y",
+          "MigrationInformation": "Cisco 3504 Wireless Controller",
+          "MigrationOption": "Enter PID(s)",
+          "MigrationProductId": "AIR-CT3504-K9",
+          "MigrationProductName": "",
+          "MigrationStrategy": "",
+          "MigrationProductInfoURL": ""
+        },
+        "EOXInputType": "ShowEOXByPids",
+        "EOXInputValue": "AIR-CT5508-25-K9 "
+      }
+    },
+    {
+      "pid": "AIR-CT5520-K9",
+      "normalized_pid": "AIR-CT5520-K9",
+      "technology": "Wireless",
+      "source": "bundled-preset",
+      "payload": {
+        "EOLProductID": "AIR-CT5520-K9",
+        "ProductIDDescription": "Cisco 5520 Wireless Controller w/rack mounting kit",
+        "ProductBulletinNumber": "EOL13657",
+        "LinkToProductBulletinURL": "https://www.cisco.com/c/en/us/products/collateral/wireless/5520-wireless-controller/eos-eol-notice-c51-744430.html",
+        "EOXExternalAnnouncementDate": {
+          "value": "2021-01-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSaleDate": {
+          "value": "2021-12-10",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSWMaintenanceReleases": {
+          "value": "2023-01-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSecurityVulSupportDate": {
+          "value": "2025-01-30",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfRoutineFailureAnalysisDate": {
+          "value": "2023-01-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfServiceContractRenewal": {
+          "value": "2026-05-01",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "LastDateOfSupport": {
+          "value": "2027-01-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EndOfSvcAttachDate": {
+          "value": "2023-01-31",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "UpdatedTimeStamp": {
+          "value": "2024-03-20",
+          "dateFormat": "YYYY-MM-DD"
+        },
+        "EOXMigrationDetails": {
+          "PIDActiveFlag": "Y",
+          "MigrationInformation": "",
+          "MigrationOption": "Enter Product Name(s)",
+          "MigrationProductId": "",
+          "MigrationProductName": "Catalyst C9800-40 Wireless Controller",
+          "MigrationStrategy": "",
+          "MigrationProductInfoURL": ""
+        },
+        "EOXInputType": "ShowEOXByPids",
+        "EOXInputValue": "AIR-CT5520-K9 "
+      }
+    }
+  ]
+}

@@ -205,3 +205,82 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# Python cache/build output
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local environment and secret files
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+*.kdbx
+
+# Runtime logs and generated network outputs
+Logs/
+logs/
+*.log
+Device Captures/
+Log_Capture/Device Logs/
+Log_Capture/outputs/
+Alive_Checks/logs/
+failed_devices_*.txt
+
+# Local network inventory and command files that may contain customer data or credentials
+Log_Capture/Sheets/devices.*
+Log_Capture/Sheets/commands.*
+!Log_Capture/Sheets/devices.example.csv
+!Log_Capture/Sheets/commands.example.csv
+!Log_Capture/Sheets/README.md
+
+# Cisco EOX Manager runtime state
+Cisco_EOX_Manager/logs/
+Cisco_EOX_Manager/data/*.db
+Cisco_EOX_Manager/data/*.db-journal
+Cisco_EOX_Manager/data/*.db-wal
+Cisco_EOX_Manager/data/*.db-shm
+Cisco_EOX_Manager/data/.env.local
+Cisco_EOX_Manager/data/.eox_runtime.env
+Cisco_EOX_Manager/data/.eox_auth.env
+Cisco_EOX_Manager/data/.eox_secret.key
+Cisco_EOX_Manager/backend/.venv/
+Cisco_EOX_Manager/front_end/node_modules/
+Cisco_EOX_Manager/front_end/dist/
+
+# Frontend/package manager caches
+node_modules/
+.npm/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tooling
+.cursorignore
+.cursorindexingignore
