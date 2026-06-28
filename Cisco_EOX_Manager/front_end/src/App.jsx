@@ -1,21 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL, apiRequest, downloadExport, getExportOptions, getProductEvidence, getStoredAdminToken, getStoredReadToken, graphqlRequest, logFrontendEvent, parsePids, setStoredAdminToken, setStoredReadToken } from './api.js';
+import { API_BASE_URL, apiRequest, downloadExport, getExportOptions, getProductEvidence, getStoredAdminToken, getStoredReadToken, logFrontendEvent, parsePids, setStoredAdminToken, setStoredReadToken } from './api.js';
 
 const samplePids = ['AIR-CT5520-K9', 'C9300-24T'];
 const datasets = ['eox_report', 'products', 'affected_products', 'announcements', 'pid_catalog', 'checkpoints', 'system_events'];
-
-const graphQueries = {
-  overview: `query Overview { databaseOverview { totalProducts totalCatalogEntries totalAnnouncements totalAnnouncementTables totalAffectedProducts totalSeedRuns totalCheckpoints totalSystemEvents totalAutopopJobs totalExportJobs } }`,
-  eox_report: `query Products($search: String, $limit: Int!) { products(search: $search, limit: $limit) { pid technology status productName series endOfSaleDate endOfSwMaintenance endOfSecuritySupport lastDateOfSupport eoxAnnouncementUrl updatedAt } }`,
-  products: `query Products($search: String, $limit: Int!) { products(search: $search, limit: $limit) { pid normalizedPid technology status source productName series endOfSaleDate lastDateOfSupport eoxAnnouncementUrl updatedAt } }`,
-  affected_products: `query Affected($search: String, $limit: Int!) { affected_products(search: $search, limit: $limit) { id pid normalizedPid technology productDescription announcementId productId tableIndex rowIndex source updatedAt payload rawResponse } }`,
-  announcements: `query Announcements($search: String, $limit: Int!) { announcements(search: $search, limit: $limit) { id announcementName title technology series announcementUrl productBulletinUrl source updatedAt } }`,
-  pid_catalog: `query Catalog($search: String, $limit: Int!) { pidCatalog(search: $search, limit: $limit) { pid normalizedPid technology categoryName productName productUrl isEox source updatedAt } }`,
-  checkpoints: `query Checkpoints($limit: Int!) { autoPopCheckpoints(limit: $limit) { id scope scopeKey status lastStartedAt lastCompletedAt lastSuccessAt nextAllowedAt runCount skipCount catalogRecords eoxRecords announcementsSeen lastError updatedAt } }`,
-  system_events: `query Events($limit: Int!) { systemEvents(limit: $limit) { id level eventType source message payload createdAt } }`,
-  jobs: `query Jobs($limit: Int!) { autoPopJobs(limit: $limit) { id status processId returnCode logFile lastError createdAt startedAt finishedAt parameters stats } }`,
-  productEvidence: `query ProductEvidence($pid: String!) { productEvidence(pid: $pid) { product { pid normalizedPid technology status source productName series endOfSaleDate lastDateOfSupport endOfSwMaintenance endOfSecuritySupport endOfRoutineFailureAnalysis eoxAnnouncementUrl productBulletinUrl updatedAt payload rawResponse } affectedProducts { id pid normalizedPid technology productDescription announcementId productId tableIndex rowIndex source updatedAt payload rawResponse } announcements { id announcementName title technology series announcementUrl productBulletinUrl source updatedAt } tables { id announcementId tableIndex heading caption headers rows rawTable updatedAt } } }`
-};
 
 const MAX_GUI_CATEGORIES = 100;
 const MAX_GUI_WORKERS = 8;
@@ -263,8 +250,8 @@ function DatabaseSetupCard({ setup, refreshSetup, refreshStats, notify, setError
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Step 1</p>
-          <h2>Pick and initialize a database</h2>
-          <p className="muted">SQLite is the easiest trial mode. PostgreSQL is better for full datasets, GraphQL, and shared Docker deployments.</p>
+          <h2>Create the local database</h2>
+          <p className="muted">This is required before lookups, Auto_Pop, or exports. Choose SQLite for the fastest start; choose PostgreSQL for Docker or shared use.</p>
         </div>
         <StatusPill ok={Boolean(setup?.database_ready)} text={setup?.database_ready ? 'Ready' : 'Needs setup'} />
       </div>
@@ -274,7 +261,7 @@ function DatabaseSetupCard({ setup, refreshSetup, refreshStats, notify, setError
         <button className="secondary" type="button" onClick={() => loadPostgresDefaults(true)}>Use Docker PostgreSQL defaults</button>
         <button className="secondary" type="button" onClick={oneClickDockerPostgres}>One-click Docker PostgreSQL</button>
       </div>
-      <p className="hint setup-hint">Docker PostgreSQL uses <strong>postgres:5432</strong> from this app. The host shell uses <strong>127.0.0.1:{postgresDefaults?.host_port || 5433}</strong>.</p>
+      <p className="hint setup-hint"><strong>Beginner choice:</strong> click Start with local SQLite. Docker PostgreSQL uses <strong>postgres:5432</strong> inside the app and <strong>127.0.0.1:{postgresDefaults?.host_port || 5433}</strong> from your host shell.</p>
 
       <div className="choice-grid">
         <button className={databaseType === 'sqlite' ? 'choice active' : 'choice'} type="button" onClick={() => setDatabaseType('sqlite')}>
@@ -613,12 +600,12 @@ function SearchPanel({ refreshStats, notify, setError, setLoading, setEvidencePi
   return (
     <section id="lookup" className="panel wide-panel focus-panel">
       <div className="panel-heading">
-        <div><p className="eyebrow">Main workflow</p><h2>Search Cisco EOX by PID</h2><p className="muted">No method selection needed. The app checks DB first, uses Cisco API only if already configured, then falls back to web scraping and saves what it learns.</p></div>
+        <div><p className="eyebrow">Step 2</p><h2>Lookup Cisco lifecycle by PID</h2><p className="muted">Paste Cisco part IDs. The app checks the local DB first, uses Cisco API if configured, then uses the fallback collector and saves what it learns.</p></div>
         <StatusPill ok={true} text="Smart lookup" />
       </div>
       <PidManager pids={pids} setPids={setPids} />
       <div className="button-row main-actions">
-        <button type="button" onClick={lookup}>Search and save missing data</button>
+        <button type="button" onClick={lookup}>Run PID lookup</button>
         <label className="checkbox-row"><input type="checkbox" checked={refresh} onChange={(event) => setRefresh(event.target.checked)} />Refresh existing DB rows</label>
       </div>
       <ResultCards results={results} onEvidence={setEvidencePid} />
@@ -797,7 +784,7 @@ function AutoPopPanel({ setup, refreshStats, notify, setError }) {
   return (
     <section id="autopop" className="panel autopop-panel">
       <div className="panel-heading">
-        <div><p className="eyebrow">Build local DB</p><h2>Auto_Pop</h2><p className="muted">Uses the database you configured above. High category caps mean “crawl everything discovered”; parser workers are capped to protect small servers.</p></div>
+        <div><p className="eyebrow">Optional bulk collection</p><h2>Auto_Pop local database</h2><p className="muted">Use this when you want a reusable local EOX database. For normal one-off checks, use PID lookup instead.</p></div>
         <div className="button-row panel-actions"><button className="secondary" type="button" onClick={refreshJobs}>Refresh</button><button className="secondary" type="button" onClick={clearJobs}>Clear old jobs</button></div>
       </div>
       {runningJob && <div className="inline-status"><strong>Running:</strong> job #{runningJob.id} · {runningJob.status}. This section refreshes every 5 seconds.</div>}
@@ -1058,9 +1045,9 @@ function ExportPanel({ notify, setError }) {
     <section id="reports" className="panel wide-panel export-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Reports</p>
-          <h2>Download CSV / Excel</h2>
-          <p className="muted">Choose only the columns people need. Cisco table columns appear here automatically after Auto_Pop stores them in the DB.</p>
+          <p className="eyebrow">Step 4</p>
+          <h2>Download CSV / Excel reports</h2>
+          <p className="muted">Choose only the columns people need. Cisco table columns appear automatically after lookup or Auto_Pop saves rows in the DB.</p>
         </div>
       </div>
       <form className="export-form" onSubmit={submit}>
@@ -1222,41 +1209,57 @@ function SystemCapabilitiesPanel({ setError }) {
 }
 
 function HelpGuidePanel() {
-  const [open, setOpen] = useState(false);
-  const tips = [
-    ['Pick a database', 'SQLite is easiest for a laptop/server trial. PostgreSQL is better for larger shared deployments.'],
-    ['Search Cisco EOX by PID', 'Add one or more PIDs. The app checks the DB first, then learns missing data automatically.'],
-    ['Auto_Pop', 'Builds your local DB by crawling Cisco slowly. Safe mode limits the crawl; advanced options control volume and cooldown.'],
-    ['Force refresh', 'Use only when you intentionally want to crawl a recently refreshed category again.'],
-    ['Cisco table viewer', 'Shows saved evidence from Cisco announcement pages. It uses REST and loads a bounded number of rows.'],
-    ['Reports', 'Export CSV/XLSX. Pick recommended fields for common users or select Cisco table columns when needed.'],
-    ['Snapshot', 'Shows DB counts. Click Refresh after long jobs if the tile has not updated automatically.'],
-    ['Security', 'Optional admin token protection is useful when other people or scripts can reach your API. Rate limits protect the small server from accidental loops.'],
+  const steps = [
+    ['1', 'Set up the database', 'Start with SQLite for a quick local test, or choose PostgreSQL for Docker and larger datasets.', '#setup'],
+    ['2', 'Search your Cisco PIDs', 'Paste part IDs such as C9300-24T. The app checks the local DB first and learns missing rows.', '#lookup'],
+    ['3', 'Review evidence', 'Open saved Cisco tables for the result so users can see where lifecycle dates came from.', '#evidence'],
+    ['4', 'Export a report', 'Download CSV or Excel output for asset reviews, lifecycle planning, and stakeholder sharing.', '#reports']
+  ];
+  const paths = [
+    ['I only have a few PIDs', 'Use Setup, then Lookup. You do not need Auto_Pop first.'],
+    ['I want a reusable local DB', 'Use Setup, then Auto_Pop. Keep the safe defaults unless you know your server capacity.'],
+    ['I need proof for dates', 'Use Evidence after a lookup to open the raw saved Cisco table rows.'],
+    ['I need a spreadsheet', 'Use Reports after lookup or Auto_Pop. Start with recommended fields.']
   ];
   return (
-    <section id="guide" className="panel guide-panel">
+    <section id="guide" className="panel guide-panel start-panel">
       <div className="panel-heading">
-        <div><p className="eyebrow">Guide</p><h2>How to use this page</h2><p className="muted">A quick explanation for first-time users.</p></div>
-        <button className="secondary" type="button" onClick={() => setOpen(!open)}>{open ? 'Hide guide' : 'Open guide'}</button>
+        <div>
+          <p className="eyebrow">Start here</p>
+          <h2>What this dashboard does</h2>
+          <p className="muted">Cisco EOX Manager helps you check Cisco product lifecycle dates, build a local searchable database, view source evidence, and export reports.</p>
+        </div>
+        <a className="link-button secondary-link" href="#lookup">Go to PID lookup</a>
       </div>
-      {open && <div className="guide-grid">{tips.map(([title, body]) => <div className="guide-item" key={title}><strong>{title}</strong><p>{body}</p></div>)}</div>}
+      <div className="workflow-grid">
+        {steps.map(([number, title, body, href]) => (
+          <a className="workflow-card" href={href} key={title}>
+            <span>{number}</span>
+            <strong>{title}</strong>
+            <p>{body}</p>
+          </a>
+        ))}
+      </div>
+      <div className="path-grid">
+        {paths.map(([title, body]) => <div className="path-card" key={title}><strong>{title}</strong><p>{body}</p></div>)}
+      </div>
     </section>
   );
 }
 
 function DashboardNav() {
   const items = [
-    ['Setup', '#setup'],
+    ['Start here', '#guide'],
+    ['Setup DB', '#setup'],
+    ['Lookup PIDs', '#lookup'],
+    ['Auto_Pop', '#autopop'],
+    ['Reports', '#reports'],
+    ['Evidence', '#evidence'],
+    ['Browse DB', '#browse'],
     ['Snapshot', '#snapshot'],
     ['DB Health', '#db-health'],
     ['System', '#system'],
-    ['Lookup', '#lookup'],
-    ['Auto_Pop', '#autopop'],
-    ['Security', '#security'],
-    ['Evidence', '#evidence'],
-    ['Browse', '#browse'],
-    ['Reports', '#reports'],
-    ['Guide', '#guide']
+    ['Security', '#security']
   ];
   return (
     <nav className="dashboard-nav" aria-label="Page sections">
@@ -1320,8 +1323,26 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="hero">
-        <div><p className="eyebrow">Free Cisco lifecycle tool</p><h1>Cisco EOX Manager</h1><p>Search PIDs, save missing EOX data automatically, browse raw Cisco tables, and export reports from your local database.</p></div>
-        <div className="hero-actions"><a href={`${API_BASE_URL}/docs`} target="_blank" rel="noreferrer">API docs</a><a href={`${API_BASE_URL}/graphql`} target="_blank" rel="noreferrer">GraphQL</a></div>
+        <div>
+          <p className="eyebrow">Cisco lifecycle lookup and reporting</p>
+          <h1>Cisco EOX Manager</h1>
+          <p>Use this dashboard to check End-of-Sale and End-of-Support dates for Cisco PIDs, keep the results in a local database, verify the source table, and export reports.</p>
+          <div className="hero-badges">
+            <span>Local DB first</span>
+            <span>PID lookup</span>
+            <span>Raw evidence</span>
+            <span>CSV/XLSX reports</span>
+          </div>
+        </div>
+        <div className="hero-side-card">
+          <strong>New user path</strong>
+          <ol>
+            <li>Click <a href="#setup">Start with local SQLite</a></li>
+            <li>Paste PIDs in <a href="#lookup">Lookup PIDs</a></li>
+            <li>Export from <a href="#reports">Reports</a></li>
+          </ol>
+          <div className="hero-actions"><a href={`${API_BASE_URL}/docs`} target="_blank" rel="noreferrer">API docs</a><a href={`${API_BASE_URL}/graphql`} target="_blank" rel="noreferrer">GraphQL</a></div>
+        </div>
       </header>
       <DashboardNav />
       <MessageBar error={error} message={message} loading={loading} clear={() => { setError(''); setMessage(''); }} />

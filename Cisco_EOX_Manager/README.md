@@ -4,8 +4,10 @@ Cisco EOX Manager is the active Cisco lifecycle product inside the larger `Netwo
 
 The tool is designed for two audiences:
 
-1. Common users who want a simple GUI, CSV, and Excel reports.
+1. Common users who want a guided GUI, CSV, and Excel reports.
 2. Developers who want REST/GraphQL access and a database-backed EOX engine.
+
+The GUI now starts with a visible Start Here panel so new users know the basic flow: set up a database, search PIDs, inspect evidence, and export reports.
 
 The database is the source of truth. Auto_Pop saves directly into the configured database. JSON files are not used for seeding or exporting in the GUI.
 
@@ -57,6 +59,8 @@ Fresh git pull
 Docker compose up
    ↓
 Open GUI
+   ↓
+Read the Start Here panel
    ↓
 Optionally enable API token protection
    ↓

@@ -2,7 +2,7 @@
 
 A collection of Python-based network utilities for reachability checks, command-output capture, and Cisco EOX lifecycle lookup/caching.
 
-This cleaned version is prepared for public or shared Git hosting: runtime logs, device captures, local spreadsheets, cache folders, and credential-bearing files have been removed and ignored.
+This version is prepared for public or shared Git hosting: runtime logs, device captures, local spreadsheets, cache folders, and credential-bearing files are ignored. The Cisco EOX dashboard now includes a visible Start Here workflow for first-time users.
 
 ## Project layout
 
@@ -35,7 +35,7 @@ Jump-host credentials must be provided locally through environment variables or 
 
 ### Log Capture
 
-Connects to devices with Netmiko, runs a command list, and writes local command-output captures.
+Connects to devices with Netmiko, runs a command list, and writes local command-output captures plus CSV/JSON run summaries.
 
 ```bash
 cd Log_Capture
@@ -44,14 +44,14 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp Sheets/devices.example.csv Sheets/devices.csv
 cp Sheets/commands.example.csv Sheets/commands.csv
-python command_run.py --devices Sheets/devices.csv --commands Sheets/commands.csv --output-dir outputs
+python command_run.py --devices Sheets/devices.csv --commands Sheets/commands.csv --output-dir outputs --prompt-password
 ```
 
-`devices.csv`, `commands.csv`, captures, logs, and failed-device reports are ignored by Git.
+`devices.csv`, `commands.csv`, captures, logs, reports, and failed-device files are ignored by Git. You can also set `NETTOOLS_SSH_PASSWORD` instead of storing passwords in the spreadsheet.
 
 ### Cisco EOX Manager
 
-Self-hosted Cisco lifecycle cache/API/dashboard for internal inventory planning.
+Self-hosted Cisco lifecycle cache, API, and guided dashboard for internal inventory planning.
 
 ```bash
 cd Cisco_EOX_Manager
@@ -68,7 +68,7 @@ GraphQL:  http://127.0.0.1:8000/graphql
 Health:   http://127.0.0.1:8000/health
 ```
 
-See `Cisco_EOX_Manager/README.md` for full setup, security, API, GraphQL, export, database, and legal notes.
+Use the GUI Start Here panel for the normal path: create a database, run PID lookup, review evidence, then export reports. See `Cisco_EOX_Manager/README.md` for full setup, security, API, GraphQL, export, database, and legal notes.
 
 ## Security rules
 
@@ -93,6 +93,7 @@ From the repository root:
 
 ```bash
 python -m compileall Alive_Checks Log_Capture Cisco_EOX_Manager/backend Cisco_EOX_Manager/tools
+pytest -q Cisco_EOX_Manager/tests
 ```
 
 For Cisco EOX Manager backend tests:
