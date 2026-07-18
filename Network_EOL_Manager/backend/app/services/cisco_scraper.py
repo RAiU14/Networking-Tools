@@ -51,7 +51,11 @@ class CiscoEoxScraperService:
             allowed_methods=frozenset({"GET"}),
             raise_on_status=False,
         )
-        adapter = HTTPAdapter(max_retries=retry)
+        adapter = HTTPAdapter(
+            max_retries=retry,
+            pool_connections=100,
+            pool_maxsize=100,
+        )
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
         self.session.headers.update(
@@ -119,14 +123,7 @@ class CiscoEoxScraperService:
     # Public scraping methods
     # ------------------------------------------------------------------
     def category(self) -> dict[str, str]:
-        """Return Cisco product/support category links.
-
-        Cisco has used at least two layouts for the all-products page:
-        the older table headed "All Product and Technology Categories" and the
-        newer list sections headed "Top Product Categories" /
-        "All Supported Cisco Products". This method supports both layouts and
-        falls back to any Cisco support category links present in the page.
-        """
+        """Return Cisco product/support category links."""
         url = f"{self.base_url}/c/en/us/support/all-products.html"
         try:
             soup = bs4.BeautifulSoup(self._get(url), "lxml")
@@ -135,13 +132,12 @@ class CiscoEoxScraperService:
             status = response.status_code if response is not None else "request-failed"
             logger.warning(
                 "Cisco all-products page could not be fetched. status=%s url=%s error=%s. "
-                "If this is a 403 or network block, run Auto_Pop with --input-file, --category-url, "
-                "or retry from a network/browser session that Cisco allows.",
+                "Falling back to well-known category list.",
                 status,
                 url,
                 exc,
             )
-            return {}
+            return self._fallback_categories()
 
         categories: dict[str, str] = {}
 
@@ -202,6 +198,30 @@ class CiscoEoxScraperService:
             return True
         return False
 
+    def _fallback_categories(self) -> dict[str, str]:
+        """Well-known Cisco support category URLs used when the all-products page is blocked."""
+        base = self.base_url
+        _known = {
+            "Routers": f"{base}/c/en/us/support/routers/category.html",
+            "Switches": f"{base}/c/en/us/support/switches/category.html",
+            "Wireless": f"{base}/c/en/us/support/wireless/category.html",
+            "Security": f"{base}/c/en/us/support/security/category.html",
+            "Collaboration Endpoints": f"{base}/c/en/us/support/collaboration-endpoints/category.html",
+            "Unified Communications": f"{base}/c/en/us/support/unified-communications/category.html",
+            "Data Center Switches": f"{base}/c/en/us/support/switches/data-center-switches/category.html",
+            "Interfaces and Modules": f"{base}/c/en/us/support/interfaces-modules/category.html",
+            "Optical Networking": f"{base}/c/en/us/support/optical-networking/category.html",
+            "Storage Networking": f"{base}/c/en/us/support/storage-networking/category.html",
+            "Video": f"{base}/c/en/us/support/video/category.html",
+            "Servers - Unified Computing": f"{base}/c/en/us/support/servers-unified-computing/category.html",
+            "Cloud and Systems Management": f"{base}/c/en/us/support/cloud-systems-management/category.html",
+            "Contact Center": f"{base}/c/en/us/support/contact-center/category.html",
+        }
+        logger.info("Using %s fallback categories for category discovery", len(_known))
+        return _known
+
+
+
     def open_cat(self, link: str) -> tuple[dict[str, str], dict[str, str] | None] | None:
         try:
             soup = bs4.BeautifulSoup(self._get(self._abs(link)), "lxml")
@@ -232,9 +252,7 @@ class CiscoEoxScraperService:
                     for container in soup.find_all(**selector):
                         self._collect_links(container, series)
 
-            # Current Cisco category pages are plain grouped lists. Keep every
-            # product/series in the catalog, and additionally flag rows whose
-            # list item carries an end-of-sale/end-of-support image/text.
+            # Keep every product/series in the catalog, and flag those with EOX status.
             self._collect_current_category_product_links(soup, series, eox)
 
             # Last safe fallback: Cisco support product links with visible names.
@@ -291,12 +309,7 @@ class CiscoEoxScraperService:
         return None
 
     def extract_models_from_series_page(self, product_link: str) -> list[str]:
-        """Extract model names shown on a Cisco product/series page.
-
-        Cisco product pages commonly expose a "Select Model" section. The
-        values are not always strict Cisco PIDs, but they are useful seed data
-        for the local PID catalog and can be refined later from API/EOX hits.
-        """
+        """Extract model names shown on a Cisco product/series page."""
         try:
             soup = bs4.BeautifulSoup(self._get(self._abs(product_link)), "lxml")
         except Exception:
@@ -383,6 +396,13 @@ class CiscoEoxScraperService:
     def _select_birth_cert_table(self, soup: bs4.BeautifulSoup) -> Any | None:
         tables = soup.find_all("table", class_="birth-cert-table")
         if not tables:
+            # Fallback to tables containing EOL/EOS milestone date fields
+            tables = []
+            for table in soup.find_all("table"):
+                text = self._text(table)
+                if any(field_name in text for field_name in DATE_FIELDS):
+                    tables.append(table)
+        if not tables:
             return None
         scored: list[tuple[int, Any]] = []
         for table in tables:
@@ -408,7 +428,7 @@ class CiscoEoxScraperService:
             soup = bs4.BeautifulSoup(self._get(self._abs(redirect_link)), "lxml")
             listing = soup.find("ul", class_="listing") or soup.find("div", class_=re.compile("listing", re.I))
             if not listing:
-                return {}
+                listing = soup
 
             urls: dict[str, str] = {}
             for anchor in listing.find_all("a"):
@@ -420,6 +440,17 @@ class CiscoEoxScraperService:
                     continue
                 if any(word in title for word in SOFTWARE_ANNOUNCEMENT_WORDS):
                     continue
+                if listing is soup:
+                    href_lower = href.lower()
+                    title_lower = title.lower()
+                    is_ann = (
+                        "eos-eol" in href_lower
+                        or "announcement" in href_lower
+                        or "bulletin" in href_lower
+                        or any(word in title_lower for word in ("end-of-sale", "end-of-life", "announcement", "notice", "eol", "eos"))
+                    )
+                    if not is_ann:
+                        continue
                 clean_title = title.replace("End-of-Sale and End-of-Life Announcement for the Cisco ", "").strip()
                 urls[clean_title or title] = href
             return urls
@@ -451,10 +482,25 @@ class CiscoEoxScraperService:
     def eox_scrapping(self, announcement_link: str) -> tuple[dict[str, str], list[str]] | None:
         return self.eox_scraping(announcement_link)
 
+    @staticmethod
+    def _looks_like_date_or_marker(value: str) -> bool:
+        text = value.strip().lower()
+        if not text:
+            return False
+        if any(month in text for month in ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")):
+            return True
+        if re.search(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", text):
+            return True
+        if re.search(r"\b\d{4}-\d{1,2}-\d{1,2}\b", text):
+            return True
+        if text in {"tbd", "not announced", "na", "n/a", "not applicable"}:
+            return True
+        return False
+
     def _find_milestone_table_index(self, tables: list[Any]) -> int | None:
         for index, table in enumerate(tables):
             text = self._text(table).lower()
-            if "milestone" in text and ("date" in text or "last date" in text):
+            if "milestone" in text or ("announcement" in text and "date" in text):
                 return index
         return 0 if tables else None
 
@@ -468,7 +514,13 @@ class CiscoEoxScraperService:
                 continue
             if cells[0].lower() == "milestone":
                 continue
-            date_value = cells[2] if len(cells) >= 3 else cells[-1]
+            date_value = None
+            for cell in cells[1:]:
+                if self._looks_like_date_or_marker(cell):
+                    date_value = cell
+                    break
+            if date_value is None:
+                date_value = cells[2] if len(cells) >= 3 else cells[-1]
             milestones[cells[0]] = date_value
         return milestones
 

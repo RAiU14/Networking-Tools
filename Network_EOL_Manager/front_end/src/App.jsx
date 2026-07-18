@@ -580,7 +580,7 @@ function SearchPanel({ refreshStats, notify, setError, setLoading, setEvidencePi
   async function lookup() {
     setError('');
     if (!pids.length) {
-      setError('Add at least one Cisco PID.');
+      setError('Add at least one PID.');
       return;
     }
     setLoading(true);
@@ -629,7 +629,7 @@ function ResultCards({ results, onEvidence }) {
               <span>Last Support</span><strong>{nvl(product.last_date_of_support)}</strong>
             </div>
             {item.message && <p className="hint card-message">{item.message}</p>}
-            <div className="card-actions"><button className="secondary" type="button" onClick={() => onEvidence(item.pid)}>View raw Cisco tables</button></div>
+            <div className="card-actions"><button className="secondary" type="button" onClick={() => onEvidence(item.pid)}>View raw EOL tables</button></div>
           </article>
         );
       })}
@@ -844,14 +844,14 @@ function EvidencePanel({ pid, setPid, setError }) {
   return (
     <section id="evidence" className="panel wide-panel evidence-panel">
       <div className="panel-heading">
-        <div><p className="eyebrow">Raw evidence</p><h2>Cisco table viewer</h2><p className="muted">Shows the exact scraped Cisco rows and every table saved for the announcement. Empty fields appear as N/A.</p></div>
+        <div><p className="eyebrow">Raw evidence</p><h2>EOL table viewer</h2><p className="muted">Shows the exact scraped Cisco rows and every table saved for the announcement. Empty fields appear as N/A.</p></div>
         <a className="link-button secondary-link" href={`${API_BASE_URL}/docs`} target="_blank" rel="noreferrer">API docs</a>
       </div>
       <form className="search-row" onSubmit={(event) => { event.preventDefault(); setPid(input); loadEvidence(input); }}>
         <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Enter PID to inspect raw tables" />
         <button type="submit">Load evidence</button>
       </form>
-      {!evidence && <div className="empty compact-empty">Select a result or enter a PID to view raw Cisco evidence.</div>}
+      {!evidence && <div className="empty compact-empty">Select a result or enter a PID to view raw EOL evidence.</div>}
       {evidence && (
         <div className="evidence-grid">
           <div className="summary-card">
@@ -872,7 +872,7 @@ function EvidencePanel({ pid, setPid, setError }) {
               <div className="announcement-block" key={announcement.id}>
                 <strong>{nvl(announcement.announcement_name || announcement.title)}</strong>
                 <p>{nvl(announcement.technology)} · {nvl(announcement.series)}</p>
-                {announcement.announcement_url && <a href={announcement.announcement_url} target="_blank" rel="noreferrer">Open Cisco page</a>}
+                {announcement.announcement_url && <a href={announcement.announcement_url} target="_blank" rel="noreferrer">Open EOL page</a>}
               </div>
             ))}
             {!evidence.announcements?.length && <p className="hint">No announcement row linked yet.</p>}
@@ -911,7 +911,7 @@ function RawCiscoTable({ table }) {
   return (
     <div className="raw-table-card">
       <div className="raw-table-heading">
-        <div><h3>{table.heading || table.caption || `Cisco table ${table.table_index}`}</h3><p className="hint">Announcement ID {table.announcement_id} · {rows.length} row(s)</p></div>
+        <div><h3>{table.heading || table.caption || `EOL table ${table.table_index}`}</h3><p className="hint">Announcement ID {table.announcement_id} · {rows.length} row(s)</p></div>
       </div>
       <div className="table-wrap raw-table-wrap">
         <table>
@@ -1091,7 +1091,7 @@ function StatsPanel({ stats, refreshStats }) {
   const metrics = [
     ['Products', stats?.totalProducts ?? 0],
     ['Announcements', stats?.totalAnnouncements ?? 0],
-    ['Cisco tables', stats?.totalAnnouncementTables ?? 0],
+    ['EOL tables', stats?.totalAnnouncementTables ?? 0],
     ['Affected rows', stats?.totalAffectedProducts ?? 0],
     ['PID catalog', stats?.totalCatalogEntries ?? 0],
     ['Auto_Pop jobs', stats?.totalAutopopJobs ?? 0]
@@ -1211,14 +1211,14 @@ function SystemCapabilitiesPanel({ setError }) {
 function HelpGuidePanel() {
   const steps = [
     ['1', 'Set up the database', 'Start with SQLite for a quick local test, or choose PostgreSQL for Docker and larger datasets.', '#setup'],
-    ['2', 'Search your Cisco PIDs', 'Paste part IDs such as C9300-24T. The app checks the local DB first and learns missing rows.', '#lookup'],
-    ['3', 'Review evidence', 'Open saved Cisco tables for the result so users can see where lifecycle dates came from.', '#evidence'],
+    ['2', 'Search your product PIDs', 'Paste part IDs such as C9300-24T. The app checks the local DB first and learns missing rows.', '#lookup'],
+    ['3', 'Review evidence', 'Open saved EOL tables for the result so users can see where lifecycle dates came from.', '#evidence'],
     ['4', 'Export a report', 'Download CSV or Excel output for asset reviews, lifecycle planning, and stakeholder sharing.', '#reports']
   ];
   const paths = [
     ['I only have a few PIDs', 'Use Setup, then Lookup. You do not need Auto_Pop first.'],
     ['I want a reusable local DB', 'Use Setup, then Auto_Pop. Keep the safe defaults unless you know your server capacity.'],
-    ['I need proof for dates', 'Use Evidence after a lookup to open the raw saved Cisco table rows.'],
+    ['I need proof for dates', 'Use Evidence after a lookup to open the raw saved EOL table rows.'],
     ['I need a spreadsheet', 'Use Reports after lookup or Auto_Pop. Start with recommended fields.']
   ];
   return (
@@ -1227,7 +1227,7 @@ function HelpGuidePanel() {
         <div>
           <p className="eyebrow">Start here</p>
           <h2>What this dashboard does</h2>
-          <p className="muted">Cisco EOX Manager helps you check Cisco product lifecycle dates, build a local searchable database, view source evidence, and export reports.</p>
+          <p className="muted">Network EOL Manager helps you check product lifecycle dates, build a local searchable database, view source evidence, and export reports.</p>
         </div>
         <a className="link-button secondary-link" href="#lookup">Go to PID lookup</a>
       </div>
@@ -1325,7 +1325,7 @@ export default function App() {
       <header className="hero">
         <div>
           <p className="eyebrow">Cisco lifecycle lookup and reporting</p>
-          <h1>Cisco EOX Manager</h1>
+          <h1>Network EOL Manager</h1>
           <p>Use this dashboard to check End-of-Sale and End-of-Support dates for Cisco PIDs, keep the results in a local database, verify the source table, and export reports.</p>
           <div className="hero-badges">
             <span>Local DB first</span>

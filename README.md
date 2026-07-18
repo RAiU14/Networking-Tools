@@ -1,8 +1,8 @@
 # Networking Tools
 
-A collection of Python-based network utilities for reachability checks, command-output capture, and Cisco EOX lifecycle lookup/caching.
+A collection of Python-based network utilities for reachability checks, command-output capture, and vendor-agnostic EOL lifecycle lookup/caching.
 
-This version is prepared for public or shared Git hosting: runtime logs, device captures, local spreadsheets, cache folders, and credential-bearing files are ignored. The Cisco EOX dashboard now includes a visible Start Here workflow for first-time users.
+This version is prepared for public or shared Git hosting: runtime logs, device captures, local spreadsheets, cache folders, and credential-bearing files are ignored. The EOL dashboard now includes a visible Start Here workflow for first-time users.
 
 ## Project layout
 
@@ -10,7 +10,7 @@ This version is prepared for public or shared Git hosting: runtime logs, device 
 Networking-Tools/
 ├── Alive_Checks/            # Direct and jump-host reachability checks
 ├── Log_Capture/             # SSH command collection from device inventory files
-├── Cisco_EOX_Manager/       # FastAPI/React Cisco EOX Manager
+├── Network_EOL_Manager/     # FastAPI/React Network EOL Manager
 ├── docs/                    # Security, cleanup, and publishing guidance
 ├── CONTRIBUTING.md
 ├── LICENSE
@@ -49,12 +49,12 @@ python command_run.py --devices Sheets/devices.csv --commands Sheets/commands.cs
 
 `devices.csv`, `commands.csv`, captures, logs, reports, and failed-device files are ignored by Git. You can also set `NETTOOLS_SSH_PASSWORD` instead of storing passwords in the spreadsheet.
 
-### Cisco EOX Manager
+### Network EOL Manager
 
-Self-hosted Cisco lifecycle cache, API, and guided dashboard for internal inventory planning.
+Self-hosted network hardware lifecycle cache, API, and guided dashboard for internal inventory planning (currently supports Cisco EOL lookups).
 
 ```bash
-cd Cisco_EOX_Manager
+cd Network_EOL_Manager
 cp .env.example .env
 docker compose up -d --build
 ```
@@ -68,7 +68,7 @@ GraphQL:  http://127.0.0.1:8000/graphql
 Health:   http://127.0.0.1:8000/health
 ```
 
-Use the GUI Start Here panel for the normal path: create a database, run PID lookup, review evidence, then export reports. See `Cisco_EOX_Manager/README.md` for full setup, security, API, GraphQL, export, database, and legal notes.
+Use the GUI Start Here panel for the normal path: create a database, run PID lookup, review evidence, then export reports. See `Network_EOL_Manager/README.md` for full setup, security, API, GraphQL, export, database, and legal notes.
 
 ## Security rules
 
@@ -92,14 +92,14 @@ More details:
 From the repository root:
 
 ```bash
-python -m compileall Alive_Checks Log_Capture Cisco_EOX_Manager/backend Cisco_EOX_Manager/tools
-pytest -q Cisco_EOX_Manager/tests
+python -m compileall Alive_Checks Log_Capture Network_EOL_Manager/backend Network_EOL_Manager/tools
+pytest -q Network_EOL_Manager/tests
 ```
 
-For Cisco EOX Manager backend tests:
+For Network EOL Manager backend tests:
 
 ```bash
-cd Cisco_EOX_Manager
+cd Network_EOL_Manager
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -109,7 +109,7 @@ pytest -q
 For the frontend:
 
 ```bash
-cd Cisco_EOX_Manager/front_end
+cd Network_EOL_Manager/front_end
 npm install
 npm run build
 ```

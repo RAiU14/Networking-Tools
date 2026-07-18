@@ -1,19 +1,17 @@
-# Cisco EOX Manager
+# Network EOL Manager
 
-Cisco EOX Manager is the active Cisco lifecycle product inside the larger `Network-Automations` repository. It is focused only on Cisco End-of-Life / End-of-Sale data for now.
+Network EOL Manager is a vendor-agnostic hardware lifecycle management tool inside the `Networking-Tools` repository. It currently supports Cisco End-of-Life / End-of-Sale data caching and retrieval.
 
 The tool is designed for two audiences:
 
-1. Common users who want a guided GUI, CSV, and Excel reports.
+1. Common users who want a simple GUI, CSV, and Excel reports.
 2. Developers who want REST/GraphQL access and a database-backed EOX engine.
-
-The GUI now starts with a visible Start Here panel so new users know the basic flow: set up a database, search PIDs, inspect evidence, and export reports.
 
 The database is the source of truth. Auto_Pop saves directly into the configured database. JSON files are not used for seeding or exporting in the GUI.
 
 ## Project positioning, data source, and legal note
 
-Cisco EOX Manager is an independent home-lab and internal-operations tool. It is not affiliated with, endorsed by, sponsored by, or supported by Cisco.
+Network EOL Manager is an independent home-lab and internal-operations tool. It is not affiliated with, endorsed by, sponsored by, or supported by Cisco.
 
 This repository is intended to provide a self-hosted API and optional dashboard for lifecycle planning. It does **not** bundle a Cisco EOX dataset. Users generate their own local cache for their own environment and are responsible for following Cisco terms, API terms, website terms, robots.txt, rate limits, and applicable laws.
 
@@ -30,7 +28,7 @@ Do not present this project as an official Cisco product, an official Cisco data
 Good public wording:
 
 ```text
-Independent home-lab/internal inventory tool for Cisco EoX lifecycle lookups.
+Independent home-lab/internal inventory tool for EOL lifecycle lookups.
 Users generate their own local cache. Not affiliated with Cisco. Use official APIs where available.
 ```
 
@@ -60,8 +58,6 @@ Docker compose up
    ↓
 Open GUI
    ↓
-Read the Start Here panel
-   ↓
 Optionally enable API token protection
    ↓
 Choose SQLite or PostgreSQL
@@ -78,7 +74,7 @@ GUI shows lookup, raw Cisco tables, and CSV/XLSX export
 ## Folder structure
 
 ```text
-Cisco_EOX_Manager/
+Network_EOL_Manager/
 ├── backend/                 # FastAPI, SQLAlchemy, GraphQL, REST routes
 ├── front_end/               # React/Vite GUI
 ├── tools/                   # Auto_Pop and local maintenance tools
@@ -93,7 +89,7 @@ Cisco_EOX_Manager/
 ## Quick Docker run
 
 ```bash
-cd Cisco_EOX_Manager
+cd Network_EOL_Manager
 cp .env.example .env
 docker compose up -d --build --force-recreate
 ```
@@ -154,7 +150,7 @@ EOX_CORS_ORIGIN_REGEX=
 
 ## API security and rate limits
 
-Cisco EOX Manager is still easy to run on a private home/LAN network, but it now includes optional API-token protection and built-in rate limiting.
+Network EOL Manager is still easy to run on a private home/LAN network, but it now includes optional API-token protection and built-in rate limiting.
 
 ### Default security posture
 
@@ -200,7 +196,7 @@ Then:
 The token is saved on the backend as a SHA-256 hash in:
 
 ```text
-Cisco_EOX_Manager/data/.eox_auth.env
+Network_EOL_Manager/data/.eox_auth.env
 ```
 
 The plain token is not written to the backend runtime file. Keep your chosen token somewhere safe, such as a password manager.
@@ -303,7 +299,7 @@ These remain open for startup and troubleshooting:
 
 ## Deployment modes
 
-Cisco EOX Manager can be used in three ways. The frontend is optional. The backend is the reusable product.
+Network EOL Manager can be used in three ways. The frontend is optional. The backend is the reusable product.
 
 ### 1. Full GUI mode
 
@@ -323,7 +319,7 @@ Run only the API and database:
 docker compose up -d postgres api
 ```
 
-Use this when another application, script, or automation platform will call Cisco EOX Manager over HTTP. The React frontend is not required.
+Use this when another application, script, or automation platform will call Network EOL Manager over HTTP. The React frontend is not required.
 
 API docs remain available at:
 
@@ -350,7 +346,7 @@ Recommended architecture for other applications:
 ```text
 Your application
    ↓ REST/GraphQL
-Cisco EOX Manager API
+Network EOL Manager API
    ↓
 SQLite or PostgreSQL
 ```
@@ -388,7 +384,7 @@ Pick a database → Start with local SQLite
 The DB file is stored at:
 
 ```text
-Cisco_EOX_Manager/data/eox_dev.db
+Network_EOL_Manager/data/eox_dev.db
 ```
 
 SQLite is now tuned with:
@@ -439,7 +435,7 @@ Save + Create Tables
 Seed / Start Auto_Pop
 ```
 
-The `Save + Create Tables` button will test PostgreSQL, create the database if the current user has permission, initialize all Cisco EOX tables, and save it as the active app database.
+The `Save + Create Tables` button will test PostgreSQL, create the database if the current user has permission, initialize all database tables, and save it as the active app database.
 
 For custom PostgreSQL servers, choose PostgreSQL, type your host/database/user/password, then click `Save + Create Tables`. If the database does not exist, the user must have permission to create databases through the maintenance database named `postgres`.
 
@@ -498,7 +494,7 @@ product_eox
   Stores PID, status, dates, source, announcement URL, and small metadata.
 
 eox_announcements
-  One row per Cisco EOX announcement URL.
+  One row per EOL announcement URL.
 
 eox_announcement_tables
   Stores each scraped Cisco table once per announcement.
@@ -734,7 +730,7 @@ curl -s "http://127.0.0.1:8000/api/logs/events?limit=30" | python3 -m json.tool
 ## Tests
 
 ```bash
-cd Cisco_EOX_Manager
+cd Network_EOL_Manager
 pip install -r requirements-dev.txt
 pytest -q
 ```
@@ -784,7 +780,7 @@ Always verify lifecycle data with Cisco before business decisions.
 
 ## Disclaimer
 
-This project is an independent tool and is not affiliated with, endorsed by, sponsored by, or supported by Cisco. Cisco product names are used only descriptively. This repository does not include a Cisco EOX dataset, and users are expected to generate their own local cache for internal inventory and lifecycle planning.
+This project is an independent tool and is not affiliated with, endorsed by, sponsored by, or supported by Cisco. Cisco product names are used only descriptively. This repository does not include a pre-populated EOL dataset, and users are expected to generate their own local cache for internal inventory and lifecycle planning.
 
 Use Cisco official APIs where available. Users are responsible for complying with Cisco terms, API terms, website terms, robots.txt, rate limits, and applicable laws. Validate important lifecycle decisions directly with Cisco or your authorized support channel. This project is provided as-is for home-lab, educational, and internal operations use.
 
@@ -812,7 +808,7 @@ frontend
 
 #### API-only mode
 
-Use this when another application will call Cisco EOX Manager through REST/GraphQL and you do not want to spend resources on the React dashboard:
+Use this when another application will call Network EOL Manager through REST/GraphQL and you do not want to spend resources on the React dashboard:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.api-only.yml up -d --build

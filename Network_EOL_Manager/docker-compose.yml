@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16
-    container_name: cisco-eox-postgres
+    container_name: net-eol-postgres
     environment:
       POSTGRES_USER: ${EOX_POSTGRES_USER:-eox_user}
       POSTGRES_PASSWORD: ${EOX_POSTGRES_PASSWORD:-eox_password}
@@ -9,7 +9,7 @@ services:
     ports:
       - "${EOX_POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
-      - eox_postgres_data:/var/lib/postgresql/data
+      - eol_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: cisco-eox-api
+    container_name: net-eol-api
     environment:
       EOX_DATABASE_URL: ${EOX_DATABASE_URL:-postgresql+psycopg://eox_user:eox_password@postgres:5432/eox_cache}
       EOX_DATA_DIR: /product/data
@@ -54,7 +54,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: cisco-eox-worker
+    container_name: net-eol-worker
     profiles: ["worker"]
     command: ["python", "/product/tools/autopop_worker.py"]
     environment:
@@ -75,7 +75,7 @@ services:
 
   frontend:
     build: ./front_end
-    container_name: cisco-eox-frontend
+    container_name: net-eol-frontend
     environment:
       VITE_API_BASE_URL: ""
     depends_on:
@@ -84,4 +84,4 @@ services:
       - "${EOX_FRONTEND_HOST_PORT:-5173}:5173"
 
 volumes:
-  eox_postgres_data:
+  eol_postgres_data:

@@ -29,7 +29,7 @@ def _str_env(name: str, default: str | None = None) -> str | None:
 
 @dataclass(frozen=True)
 class Settings:
-    app_name: str = os.getenv("EOX_APP_NAME", "Cisco EOX Manager")
+    app_name: str = os.getenv("EOX_APP_NAME", "Network EOL Manager")
     api_prefix: str = os.getenv("EOX_API_PREFIX", "/api")
     environment: str = os.getenv("EOX_ENV", "local")
 
@@ -49,7 +49,7 @@ class Settings:
     http_timeout_seconds: int = int(os.getenv("EOX_HTTP_TIMEOUT_SECONDS", "30"))
     http_retries: int = int(os.getenv("EOX_HTTP_RETRIES", "3"))
     http_backoff_seconds: float = float(os.getenv("EOX_HTTP_BACKOFF_SECONDS", "0.5"))
-    user_agent: str = os.getenv("EOX_USER_AGENT", "Cisco-EOX-Manager/1.0")
+    user_agent: str = os.getenv("EOX_USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     cors_origins: list[str] = None  # type: ignore[assignment]
     cors_origin_regex: str | None = None
@@ -66,7 +66,7 @@ class Settings:
         object.__setattr__(
             self,
             "cors_origin_regex",
-            _str_env("EOX_CORS_ORIGIN_REGEX", r"^https?://([^/:]+)(:5173|:5174)"),
+            _str_env("EOX_CORS_ORIGIN_REGEX", r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:5173|:5174)?$"),
         )
 
 

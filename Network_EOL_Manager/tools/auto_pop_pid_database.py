@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Populate the Cisco EOX Manager database directly.
-
-Auto_Pop crawls Cisco EOX announcement pages, preserves every scraped table,
-maps affected PIDs to lifecycle data, and saves the result into PostgreSQL or
-SQLite. JSON seed/export files are intentionally not part of this workflow.
-JSON-shaped retrieval is exposed later through GraphQL from database records.
-"""
+"""Populate the EOX Manager database directly from Cisco support pages and API."""
 from __future__ import annotations
 
 import argparse
@@ -49,8 +43,7 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger("auto_pop_pid_database")
 
-# Importer field aliases in app.services.eox_orchestrator already understand
-# these names match the database persistence layer.
+# Field aliases matched to the database persistence layer.
 CANONICAL_FIELDS = {
     "end_of_sale_date": "End-of-Sale Date",
     "last_date_of_support": "Last Date of Support",
@@ -325,13 +318,7 @@ def _eox_record(
 
 
 def _merge_duplicate_eox_records(records: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Keep one importable record per normalized PID and retain alternatives.
-
-    ProductEox has a unique normalized_pid constraint. Multiple Cisco bulletins
-    can mention the same PID, so the database seed should not contain duplicate rows
-    that fight each other during import. The best record is the one with the
-    most lifecycle fields; other announcement references are kept in payload.
-    """
+    """Keep one importable record per normalized PID and retain alternatives in payload."""
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
         pid = _as_text(record.get("pid") or record.get("ProductID") or record.get("EOLProductID"))
@@ -452,6 +439,8 @@ def _merge_seed(base: dict[str, Any], incoming: Mapping[str, Any]) -> dict[str, 
         base["pid_catalog"].extend([item for item in incoming["pid_catalog"] if isinstance(item, Mapping)])
     if isinstance(incoming.get("eox_records"), list):
         base["eox_records"].extend([item for item in incoming["eox_records"] if isinstance(item, Mapping)])
+    if isinstance(incoming.get("metadata"), Mapping):
+        base.setdefault("metadata", {}).update(incoming["metadata"])
     return base
 
 
@@ -460,12 +449,7 @@ def _merge_seed(base: dict[str, Any], incoming: Mapping[str, Any]) -> dict[str, 
 # ---------------------------------------------------------------------------
 
 class StandaloneCiscoEoxApi:
-    """Small Cisco EOX API client for this exporter.
-
-    The main backend client stores credentials in PostgreSQL. Auto_Pop needs to
-    run before/without the database too, so this local client reads credentials
-    from CLI args or environment variables.
-    """
+    """Standalone Cisco EOX API client for CLI usage."""
 
     def __init__(
         self,
@@ -678,12 +662,7 @@ def _unique_headers(headers: Sequence[str], width: int) -> list[str]:
 
 
 def _table_rows(table: Any) -> list[dict[str, Any]]:
-    """Return raw rows while preserving every visible table cell.
-
-    This intentionally does not discard columns. It keeps a cell list, a header
-    flag, and row/cell indexes so the database record can be audited back to the Cisco
-    table that produced it.
-    """
+    """Return raw rows while preserving every visible table cell."""
     rows: list[dict[str, Any]] = []
     for row_index, row in enumerate(table.find_all("tr"), start=1):
         cells: list[dict[str, Any]] = []
@@ -1112,13 +1091,30 @@ def _scrape_series_eox(
     full_table_pages = 0
     fallback_pages = 0
     fetched_pages: list[tuple[str, str, str]] = []
-    for announcement_name, announcement_url in announcement_items:
-        LOGGER.info("        Fetching announcement page: %s", announcement_name)
-        html = _fetch_announcement_html(scraper, announcement_url)
-        if html:
-            fetched_pages.append((announcement_name, announcement_url, html))
-        if delay_seconds:
-            time.sleep(delay_seconds)
+    fetch_worker_count = max(1, min(int(parse_workers or 1), len(announcement_items) or 1))
+    if fetch_worker_count > 1 and len(announcement_items) > 1:
+        LOGGER.info("        Fetching %s announcement pages concurrently (%s workers)", len(announcement_items), fetch_worker_count)
+        with ThreadPoolExecutor(max_workers=fetch_worker_count) as executor:
+            fetch_futures = {
+                executor.submit(_fetch_announcement_html, scraper, ann_url): (ann_name, ann_url)
+                for ann_name, ann_url in announcement_items
+            }
+            for future in as_completed(fetch_futures):
+                ann_name, ann_url = fetch_futures[future]
+                try:
+                    html = future.result()
+                    if html:
+                        fetched_pages.append((ann_name, ann_url, html))
+                except Exception:
+                    LOGGER.exception("        Failed to fetch announcement page: %s", ann_url)
+    else:
+        for announcement_name, announcement_url in announcement_items:
+            LOGGER.info("        Fetching announcement page: %s", announcement_name)
+            html = _fetch_announcement_html(scraper, announcement_url)
+            if html:
+                fetched_pages.append((announcement_name, announcement_url, html))
+            if delay_seconds:
+                time.sleep(delay_seconds)
 
     parsed_pages: list[tuple[str, str, dict[str, Any] | None]] = []
     worker_count = max(1, min(int(parse_workers or 1), len(fetched_pages) or 1))
@@ -1832,8 +1828,14 @@ def build_catalog(
     seed["pid_catalog"] = _dedupe_catalog(seed.get("pid_catalog", []))
     seed["eox_records"] = _merge_duplicate_eox_records(seed.get("eox_records", []))
     seed["metadata"]["categories_seen"] = len(seed.get("categories") or {})
-    seed["metadata"]["catalog_records"] = len(seed.get("pid_catalog") or [])
-    seed["metadata"]["eox_records"] = len(seed.get("eox_records") or [])
+
+    # When progressive DB saves are active, the in-memory lists are intentionally
+    # empty because data was already committed to the database per-category.
+    # Preserve the progressive counts from _crawl_categories_online metadata.
+    progressive_db_save = seed.get("metadata", {}).get("progressive_db_save", False)
+    if not progressive_db_save:
+        seed["metadata"]["catalog_records"] = len(seed.get("pid_catalog") or [])
+        seed["metadata"]["eox_records"] = len(seed.get("eox_records") or [])
 
     progressive_count = int(seed.get("metadata", {}).get("catalog_records") or 0) + int(seed.get("metadata", {}).get("eox_records") or 0)
     if not seed["pid_catalog"] and not seed["eox_records"] and not allow_empty and progressive_count == 0:
@@ -1871,11 +1873,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit-announcements", type=int, default=None, help="Limit announcements scraped per EOX listing page")
     parser.add_argument("--crawl-models", action="store_true", help="Open series pages and collect model names from the Select Model section")
     parser.add_argument("--limit-series", type=int, default=None, help="Limit series pages opened when --crawl-models is used")
-    parser.add_argument("--delay", type=float, default=1.0, help="Delay between Cisco requests in seconds")
+    parser.add_argument("--delay", type=float, default=0.3, help="Delay between Cisco requests in seconds")
     parser.add_argument("--timeout", type=int, default=30, help="HTTP timeout for optional API calls")
     parser.add_argument("--retries", type=int, default=2, help="HTTP retry count for optional API calls")
-    parser.add_argument("--parse-workers", type=int, default=2, help="Worker threads for CPU/local parsing after Cisco pages are fetched sequentially")
-    parser.add_argument("--category-break", type=float, default=10.0, help="Seconds to pause after each category finishes before opening the next category")
+    parser.add_argument("--parse-workers", type=int, default=8, help="Worker threads for CPU/local parsing after Cisco pages are fetched sequentially")
+    parser.add_argument("--category-break", type=float, default=2.0, help="Seconds to pause after each category finishes before opening the next category")
     parser.add_argument("--min-run-interval-hours", type=float, default=168.0, help="Minimum hours before another full Cisco crawl is allowed when no explicit category/category-url is provided")
     parser.add_argument("--min-category-interval-hours", type=float, default=168.0, help="Minimum hours before the same category is crawled again")
     parser.add_argument("--force-refresh", action="store_true", help="Ignore Auto_Pop cooldown metadata and crawl anyway")

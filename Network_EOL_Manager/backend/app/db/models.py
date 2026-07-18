@@ -49,11 +49,11 @@ class ProductEox(Base):
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="unknown", index=True)
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="cache", index=True)
 
-    end_of_sale_date: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    last_date_of_support: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    end_of_sw_maintenance: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    end_of_security_support: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    end_of_routine_failure_analysis: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    end_of_sale_date: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_date_of_support: Mapped[str | None] = mapped_column(Text, nullable=True)
+    end_of_sw_maintenance: Mapped[str | None] = mapped_column(Text, nullable=True)
+    end_of_security_support: Mapped[str | None] = mapped_column(Text, nullable=True)
+    end_of_routine_failure_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     eox_announcement_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     product_bulletin_url: Mapped[str | None] = mapped_column(Text, nullable=True)

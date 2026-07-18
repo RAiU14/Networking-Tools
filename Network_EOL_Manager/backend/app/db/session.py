@@ -82,7 +82,7 @@ def get_engine(database_url: str | None = None) -> Engine:
                 engine = create_engine(url, future=True, pool_pre_ping=True, connect_args=connect_args)
                 _configure_sqlite(engine)
             else:
-                engine = create_engine(url, future=True, pool_pre_ping=True, pool_size=5, max_overflow=5)
+                engine = create_engine(url, future=True, pool_pre_ping=True, pool_size=20, max_overflow=20)
             _engine_cache[url] = engine
         _current_url = url
         return engine

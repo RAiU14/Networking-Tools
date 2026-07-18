@@ -449,17 +449,16 @@ class SeedPersistenceService:
 
     def __init__(self, db: Session):
         self.db = db
+        self._catalog_cache: dict[tuple[str, str], PidCatalog] = {}
+        self._product_cache: dict[str, ProductEox] = {}
+        self._announcement_cache: dict[str, EoxAnnouncement] = {}
+        self._table_cache: dict[tuple[int, int], EoxAnnouncementTable] = {}
+        self._affected_cache: dict[tuple[int, str, int, int], EoxAffectedProduct] = {}
 
     def _pending_catalog_entry(self, normalized: str, technology: str) -> PidCatalog | None:
-        collections = [list(self.db.new), list(self.db.dirty), list(self.db.identity_map.values())]
-        for collection in collections:
-            for obj in collection:
-                if (
-                    isinstance(obj, PidCatalog)
-                    and obj.normalized_pid == normalized
-                    and obj.technology == technology
-                ):
-                    return obj
+        key = (normalized, technology)
+        if key in self._catalog_cache:
+            return self._catalog_cache[key]
         return None
 
     def _catalog_entry(self, normalized: str, technology: str) -> PidCatalog | None:
@@ -467,11 +466,14 @@ class SeedPersistenceService:
         if pending is not None:
             return pending
         with self.db.no_autoflush:
-            return (
+            entry = (
                 self.db.query(PidCatalog)
                 .filter(PidCatalog.normalized_pid == normalized, PidCatalog.technology == technology)
                 .one_or_none()
             )
+        if entry is not None:
+            self._catalog_cache[(normalized, technology)] = entry
+        return entry
 
     def save_seed(
         self,
@@ -493,8 +495,84 @@ class SeedPersistenceService:
         )
         self.db.add(run)
         self.db.flush()
+
+        # Bulk pre-caching to avoid N+1 queries during import
+        catalog_entries = list(_iter_catalog_entries(data))
+        eox_records = list(_iter_eox_records(data))
+
+        catalog_pids = set()
+        for item in catalog_entries:
+            pid = _as_text(item.get("pid") or item.get("name") or item.get("product_name") or item.get("model"))
+            if pid:
+                catalog_pids.add(normalize_pid(pid))
+        for record in eox_records:
+            payload = _record_payload(record)
+            pid = _as_text(
+                record.get("pid")
+                or _payload_value(payload, FIELD_ALIASES["pid"])
+                or record.get("EOLProductID")
+                or record.get("ProductID")
+            )
+            if pid:
+                catalog_pids.add(normalize_pid(pid))
+
+        if catalog_pids:
+            pid_list = list(catalog_pids)
+            for i in range(0, len(pid_list), 500):
+                chunk = pid_list[i:i+500]
+                existing = self.db.query(PidCatalog).filter(PidCatalog.normalized_pid.in_(chunk)).all()
+                for entry in existing:
+                    self._catalog_cache[(entry.normalized_pid, entry.technology)] = entry
+
+        product_pids = set()
+        for record in eox_records:
+            payload = _record_payload(record)
+            pid = _as_text(
+                record.get("pid")
+                or _payload_value(payload, FIELD_ALIASES["pid"])
+                or record.get("EOLProductID")
+                or record.get("ProductID")
+            )
+            if pid:
+                product_pids.add(normalize_pid(pid))
+
+        if product_pids:
+            prod_list = list(product_pids)
+            for i in range(0, len(prod_list), 500):
+                chunk = prod_list[i:i+500]
+                existing = self.db.query(ProductEox).filter(ProductEox.normalized_pid.in_(chunk)).all()
+                for product in existing:
+                    self._product_cache[product.normalized_pid] = product
+
+        announcement_urls = set()
+        for record in eox_records:
+            payload = _record_payload(record)
+            url = _as_text(record.get("announcement_url") or _payload_value(payload, FIELD_ALIASES["eox_announcement_url"]))
+            if url:
+                announcement_urls.add(url)
+
+        if announcement_urls:
+            url_list = list(announcement_urls)
+            for i in range(0, len(url_list), 500):
+                chunk = url_list[i:i+500]
+                existing = self.db.query(EoxAnnouncement).filter(EoxAnnouncement.announcement_url.in_(chunk)).all()
+                for ann in existing:
+                    self._announcement_cache[ann.announcement_url] = ann
+
+        announcement_ids = [ann.id for ann in self._announcement_cache.values() if ann.id is not None]
+        if announcement_ids:
+            for i in range(0, len(announcement_ids), 500):
+                chunk = announcement_ids[i:i+500]
+                existing_tables = self.db.query(EoxAnnouncementTable).filter(EoxAnnouncementTable.announcement_id.in_(chunk)).all()
+                for tbl in existing_tables:
+                    self._table_cache[(tbl.announcement_id, tbl.table_index)] = tbl
+
+                existing_affected = self.db.query(EoxAffectedProduct).filter(EoxAffectedProduct.announcement_id.in_(chunk)).all()
+                for aff in existing_affected:
+                    self._affected_cache[(aff.announcement_id, aff.normalized_pid, aff.table_index, aff.row_index)] = aff
+
         try:
-            for item in _iter_catalog_entries(data):
+            for item in catalog_entries:
                 try:
                     with self.db.begin_nested():
                         changed = self.save_catalog_entry(item, overwrite=overwrite)
@@ -565,6 +643,7 @@ class SeedPersistenceService:
         if entry is None:
             entry = PidCatalog(pid=pid, normalized_pid=normalized, technology=technology)
             self.db.add(entry)
+            self._catalog_cache[(normalized, technology)] = entry
             created = True
 
         incoming_payload = dict(item.get("payload") or {}) if isinstance(item.get("payload"), Mapping) else dict(item)
@@ -660,11 +739,19 @@ class SeedPersistenceService:
         overwrite: bool,
     ) -> tuple[ProductEox, str]:
         normalized = normalize_pid(pid)
-        product = self.db.query(ProductEox).filter(ProductEox.normalized_pid == normalized).one_or_none()
-        created = False
+        if normalized in self._product_cache:
+            product = self._product_cache[normalized]
+            created = False
+        else:
+            product = self.db.query(ProductEox).filter(ProductEox.normalized_pid == normalized).one_or_none()
+            created = False
+            if product is not None:
+                self._product_cache[normalized] = product
+
         if product is None:
             product = ProductEox(pid=pid, normalized_pid=normalized)
             self.db.add(product)
+            self._product_cache[normalized] = product
             created = True
 
         compact_payload = _compact_product_payload(pid=pid, technology=technology, payload=payload, record=record, source=source)
@@ -741,11 +828,19 @@ class SeedPersistenceService:
         announcement_url = _as_text(record.get("announcement_url") or _payload_value(payload, FIELD_ALIASES["eox_announcement_url"]))
         if not announcement_url:
             return None
-        announcement = self.db.query(EoxAnnouncement).filter(EoxAnnouncement.announcement_url == announcement_url).one_or_none()
-        created = False
+        if announcement_url in self._announcement_cache:
+            announcement = self._announcement_cache[announcement_url]
+            created = False
+        else:
+            announcement = self.db.query(EoxAnnouncement).filter(EoxAnnouncement.announcement_url == announcement_url).one_or_none()
+            created = False
+            if announcement is not None:
+                self._announcement_cache[announcement_url] = announcement
+
         if announcement is None:
             announcement = EoxAnnouncement(announcement_url=announcement_url)
             self.db.add(announcement)
+            self._announcement_cache[announcement_url] = announcement
             created = True
         previous_hash = announcement.content_hash
         announcement_payload = _compact_announcement_payload(record, payload, technology)
@@ -772,16 +867,22 @@ class SeedPersistenceService:
             if not isinstance(table, Mapping):
                 continue
             table_index = int(table.get("table_index") or 0)
-            existing = (
-                self.db.query(EoxAnnouncementTable)
-                .filter(EoxAnnouncementTable.announcement_id == announcement.id, EoxAnnouncementTable.table_index == table_index)
-                .one_or_none()
-            )
+            existing = None
+            if announcement.id is not None:
+                existing = self._table_cache.get((announcement.id, table_index))
+            if existing is None:
+                existing = (
+                    self.db.query(EoxAnnouncementTable)
+                    .filter(EoxAnnouncementTable.announcement_id == announcement.id, EoxAnnouncementTable.table_index == table_index)
+                    .one_or_none()
+                )
             created = False
             if existing is None:
                 existing = EoxAnnouncementTable(announcement_id=announcement.id, table_index=table_index)
                 self.db.add(existing)
                 created = True
+                if announcement.id is not None:
+                    self._table_cache[(announcement.id, table_index)] = existing
             headers = list(table.get("headers") or [])
             rows = _compact_table_rows(table)
             raw_table = _compact_table_raw(table, row_count=len(rows), header_count=len(headers))
@@ -819,16 +920,20 @@ class SeedPersistenceService:
         row_index = int(row_info.get("row_index") or 0)
         compact_payload = _compact_affected_payload(record, payload, row_info)
         row_hash = content_hash(compact_payload)
-        existing = (
-            self.db.query(EoxAffectedProduct)
-            .filter(
-                EoxAffectedProduct.announcement_id == announcement.id,
-                EoxAffectedProduct.normalized_pid == normalized,
-                EoxAffectedProduct.table_index == table_index,
-                EoxAffectedProduct.row_index == row_index,
+        existing = None
+        if announcement.id is not None:
+            existing = self._affected_cache.get((announcement.id, normalized, table_index, row_index))
+        if existing is None:
+            existing = (
+                self.db.query(EoxAffectedProduct)
+                .filter(
+                    EoxAffectedProduct.announcement_id == announcement.id,
+                    EoxAffectedProduct.normalized_pid == normalized,
+                    EoxAffectedProduct.table_index == table_index,
+                    EoxAffectedProduct.row_index == row_index,
+                )
+                .one_or_none()
             )
-            .one_or_none()
-        )
         created = False
         if existing is None:
             existing = EoxAffectedProduct(
@@ -841,6 +946,8 @@ class SeedPersistenceService:
             )
             self.db.add(existing)
             created = True
+            if announcement.id is not None:
+                self._affected_cache[(announcement.id, normalized, table_index, row_index)] = existing
         changed = created or existing.row_hash != row_hash
         existing.product_id = product.id
         existing.pid = pid

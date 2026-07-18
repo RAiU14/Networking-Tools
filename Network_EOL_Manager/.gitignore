@@ -1,0 +1,40 @@
+# Environment variables and credentials
+.env
+data/.env.local
+data/.eox_runtime.env
+data/.eox_auth.env
+data/.eox_secret.key
+
+# Python files
+*.py[cod]
+__pycache__/
+
+# Virtual environments
+venv/
+.venv/
+backend/.venv/
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local databases and locks
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Front-end dependencies and build outputs
+front_end/node_modules/
+front_end/dist/
+
+# Logs
+logs/
+
+# IDE configurations and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
